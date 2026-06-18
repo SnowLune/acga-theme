@@ -85,9 +85,26 @@ def modify_rgb(
 
     return tuple(rgb_list)
 
+# Determine which channels should be modified
+def get_color_channels(color: Color, direction: int) -> list[int]:
+    match direction:
+        case -1:
+            if all(color.rgb[c] == 0 for c in color.secondary_channels):
+                channels = color.primary_channels
+            else:
+                channels = color.secondary_channels
+        case 1:
+            if all(color.rgb[c] >= UINT8 for c in color.primary_channels):
+                channels = color.secondary_channels
+            else:
+                channels = color.primary_channels
+    assert(channels)
+    return channels
+
+
 def main():
 
-    bg_rgb24 = RGBI_PALETTE["intense_white"].rgb
+    bg_rgb24 = RGBI_PALETTE["black"].rgb
     print(f"background: {bg_rgb24}")
 
 
@@ -116,23 +133,22 @@ def main():
             color.rgb = bg_rgb24
             ratio_requirement = WCAG_AA
 
-
         while color.contrast_ratio < ratio_requirement:
-            if direction == -1 and all(color.rgb[c] == 0 for c in color.secondary_channels):
-                channels_to_modify = color.primary_channels
-            elif direction == -1:
-                channels_to_modify = color.secondary_channels
-            elif direction == 1 and all(color.rgb[c] >= UINT8 for c in color.primary_channels):
-                channels_to_modify = color.secondary_channels
-            else:
-                channels_to_modify = color.primary_channels
+            channels_to_modify = get_color_channels(color, direction)
             color.rgb = modify_rgb(color.rgb, channels_to_modify, direction)
             color.contrast_ratio = check_contrast(color.rgb, bg_rgb24)
 
         RGBI_PALETTE[color_name].rgb = color.rgb        
 
     for color_name, color in RGBI_PALETTE.items():
-        print(f"\033[48;2;{bg_rgb24[0]};{bg_rgb24[1]};{bg_rgb24[2]}m\033[38;2;{color.rgb[0]};{color.rgb[1]};{color.rgb[2]}m{color_name:>16} #{color.rgb[0]:02X}{color.rgb[1]:02X}{color.rgb[2]:02X}{color.contrast_ratio:>12.8f}\033[0m")
+        bg_ESC = f"\033[48;2;{bg_rgb24[0]};{bg_rgb24[1]};{bg_rgb24[2]}m"
+        fg_ESC = f"\033[38;2;{color.rgb[0]};{color.rgb[1]};{color.rgb[2]}m"
+        end_ESC = f"\033[0m"
+        hexcode = f"#{color.rgb[0]:02X}{color.rgb[1]:02X}{color.rgb[2]:02X}"
+        name = f"{color_name:>16}"
+        contrast = f"{color.contrast_ratio:>12.8f}"
+
+        print(f"{bg_ESC}{fg_ESC}{name}{hexcode}{contrast}{end_ESC}")
 
 if __name__=="__main__":
     main()    
